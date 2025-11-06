@@ -36,6 +36,18 @@
         </el-card>
       </el-col>
     </el-row>
+    <el-row style="margin-top: 20px">
+      <el-col :span="24">
+        <el-card shadow="never">
+          <template #header>
+            <span>训练过程示意图</span>
+          </template>
+          <div class="train-image">
+            <el-image :src="trainProcessImg" fit="contain" />
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -56,6 +68,7 @@ export default {
         accuracy: Array.from({ length: 20 }, () => (Math.random() * 0.2 + 0.7).toFixed(3)),
         lr: Array.from({ length: 20 }, () => (Math.random() * 0.001 + 0.0005).toFixed(6))
       }
+      trainProcessImg: new URL('../assets/训练过程图.png', import.meta.url).href
     }
   },
   mounted() {
@@ -138,5 +151,16 @@ export default {
   margin-top: 12px;
   display: flex;
   gap: 10px;
+}
+.train-image {
+  width: 100%;
+  height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.train-image .el-image {
+  max-width: 100%;
+  max-height: 100%;
 }
 </style>
