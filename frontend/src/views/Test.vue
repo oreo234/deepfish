@@ -125,12 +125,21 @@ export default {
         YellowTang: '黄吊 (Zebrasoma flavescens)',
         ZebraFish: '斑马鱼 (Danio rerio)'
       },
-      sampleImages: [
-        { name: '金鱼 (Carassius auratus)', url: '/samples/goldfish.jpg' },
-        { name: '锦鲤 (Cyprinus carpio)', url: '/samples/carp.jpg' },
-        { name: '斗鱼 (Betta splendens)', url: '/samples/betta.jpg' },
-        { name: '孔雀鱼 (Poecilia reticulata)', url: '/samples/guppy.jpg' },
-        { name: '神仙鱼 (Pterophyllum scalare)', url: '/samples/angelfish.jpg' }
+      // 新的样例图片定义（索引与名称，按 0-12 顺序）
+      sampleImageDefs: [
+        { fileName: '介绍模型 (0).png', name: 'AngelFish（神仙鱼）' },
+        { fileName: '介绍模型 (1).png', name: 'BlueTang（蓝吊）' },
+        { fileName: '介绍模型 (2).png', name: 'ButterflyFish（蝴蝶鱼）' },
+        { fileName: '介绍模型 (3).png', name: 'ClownFish（小丑鱼）' },
+        { fileName: '介绍模型 (4).png', name: 'GoldFish（金鱼）' },
+        { fileName: '介绍模型 (5).png', name: 'Gourami（丝足鲈 / 斗鱼）' },
+        { fileName: '介绍模型 (6).png', name: 'MorishIdol（镰鱼 / 神像鱼）' },
+        { fileName: '介绍模型 (7).png', name: 'PlatyFish（月光鱼）' },
+        { fileName: '介绍模型 (8).png', name: 'RibbonedSweetlips（丝带石鲈）' },
+        { fileName: '介绍模型 (9).png', name: 'ThreeStripedDamselfish（三带雀鲷）' },
+        { fileName: '介绍模型 (10).png', name: 'YellowCichlid（黄慈鲷）' },
+        { fileName: '介绍模型 (11).png', name: 'YellowTang（黄吊）' },
+        { fileName: '介绍模型 (12).png', name: 'ZebraFish（斑马鱼）' }
       ]
     }
   },
@@ -143,6 +152,13 @@ export default {
     },
     percentageFormat() {
       return (percentage) => `${percentage}%`
+    },
+    // 根据 assets 中的文件名生成样例图片 URL
+    sampleImages() {
+      return this.sampleImageDefs.map(item => ({
+        name: item.name,
+        url: new URL(`../assets/${item.fileName}`, import.meta.url).href
+      }))
     }
   },
   methods: {
@@ -238,8 +254,10 @@ export default {
 
       this.loading = true
       try {
-        // 按接口文档：基于 image_id 调用 /predict
+        // 记录开始时间，用于计算"测试时间"（点击到后端返回的时间差）
+        const startTs = performance.now()
         const data = await fishApi.predictById(this.uploadedImageId, this.predictType)
+        const elapsed = (performance.now() - startTs) / 1000
 
         // 将后端的英文 class_name 映射为前端中英双语显示
         const mappedClass = this.classNameMap[data?.detections?.[0]?.class_name] || data?.detections?.[0]?.class_name || '未知鱼类'
@@ -249,7 +267,8 @@ export default {
         this.result = {
           class: mappedClass,
           confidence,
-          inference_time: data?.inference_time || 0,
+          // 测试时间：点击到返回的时间差（秒）
+          inference_time: Number(elapsed.toFixed(3)),
           model: data?.predict_type || this.predictType
         }
 
@@ -345,12 +364,17 @@ export default {
 
 .samples {
   display: flex;
+  flex-wrap: wrap; /* 一行五个，自动换行 */
   gap: 10px;
-  overflow-x: auto;
   padding-bottom: 10px;
 }
 
 .sample-item {
+  flex: 0 0 calc(20% - 8px); /* 每行5个，留出gap */
+  max-width: calc(20% - 8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   cursor: pointer;
   text-align: center;
   transition: transform 0.2s;

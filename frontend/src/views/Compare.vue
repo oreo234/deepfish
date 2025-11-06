@@ -14,7 +14,7 @@
         <el-icon class="upload-icon"><upload-filled /></el-icon>
         <div class="upload-text">
           <span>拖拽图片到此处或点击上传</span>
-          <p>支持 JPG、PNG 格式图片</p>
+          <p>支持 JPG、PNG、GIF 格式图片</p>
         </div>
       </el-upload>
       
@@ -68,27 +68,6 @@
           </el-col>
         </el-row>
       </div>
-      
-      <!-- 图表对比区 -->
-      <div class="chart-section">
-        <el-tabs type="border-card">
-          <el-tab-pane label="准确率对比">
-            <div class="chart-container" ref="accuracyChart"></div>
-          </el-tab-pane>
-          <el-tab-pane label="召回率对比">
-            <div class="chart-container" ref="recallChart"></div>
-          </el-tab-pane>
-          <el-tab-pane label="F1分数对比">
-            <div class="chart-container" ref="f1Chart"></div>
-          </el-tab-pane>
-        </el-tabs>
-        
-        <div class="chart-actions">
-          <el-tooltip content="下载对比图表" placement="top">
-            <el-button type="primary" plain icon="Download" @click="downloadChart">下载对比图</el-button>
-          </el-tooltip>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -96,7 +75,6 @@
 <script>
 import { UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import * as echarts from 'echarts'
 import { fishApi } from '@/api'
 
 export default {
@@ -108,14 +86,31 @@ export default {
     return {
       imageUrl: '',
       imageFile: null,
+      uploadedImageId: null,
       loading: false,
       comparisonResults: null,
+      // 与接口文档一致的三个检测模型
       models: [
-        { id: 'model1', name: 'YOLOv5', type: '目标检测', color: '#409EFF' },
-        { id: 'model2', name: 'ResNet50', type: '分类', color: '#67C23A' },
-        { id: 'model3', name: 'EfficientNet', type: '分类', color: '#E6A23C' }
+        { id: 'yolo_public_model', name: 'YOLOv5', type: '目标检测', color: '#409EFF' },
+        { id: 'faster_rcnn_public_model', name: 'Faster R-CNN', type: '目标检测', color: '#67C23A' },
+        { id: 'retinanet_public_model', name: 'RetinaNet', type: '目标检测', color: '#E6A23C' }
       ],
-      charts: {}
+      // 映射后端英文类别到前端中英双语
+      classNameMap: {
+        AngelFish: '神仙鱼 (Pterophyllum scalare)',
+        BlueTang: '蓝吊 (Paracanthurus hepatus)',
+        ButterflyFish: '蝶鱼 (Chaetodontidae)',
+        ClownFish: '小丑鱼 (Amphiprioninae)',
+        GoldFish: '金鱼 (Carassius auratus)',
+        Gourami: '丝足鱼/吻鱼 (Osphronemidae)',
+        MorishIdol: '莫里什神仙鱼 (Zanclidae)',
+        PlatyFish: '月光鱼/剑尾鱼 (Xiphophorus maculatus)',
+        RibbonedSweetlips: '丝鳢/花唇鱼 (Plectorhinchus polytaenia)',
+        ThreeStripedDamselfish: '三带豆娘 (Dascyllus aruanus)',
+        YellowCichlid: '黄慈鲷 (Labidochromis caeruleus)',
+        YellowTang: '黄吊 (Zebrasoma flavescens)',
+        ZebraFish: '斑马鱼 (Danio rerio)'
+      }
     }
   },
   methods: {
@@ -124,42 +119,81 @@ export default {
     },
     handleFileChange(file) {
       if (!file) return
-      const isImage = file.raw.type === 'image/jpeg' || file.raw.type === 'image/png'
+      const type = file.raw?.type || ''
+      const isImage = ['image/jpeg', 'image/png', 'image/gif'].includes(type)
       if (!isImage) {
-        ElMessage.error('只能上传JPG或PNG格式的图片!')
+        ElMessage.error('只能上传JPG、PNG或GIF格式的图片!')
         return
       }
       this.imageFile = file.raw
       this.imageUrl = URL.createObjectURL(file.raw)
       this.comparisonResults = null
-      Object.values(this.charts).forEach(chart => { chart && chart.dispose() })
-      this.charts = {}
+      
+      // 按接口文档：选择图片后立即上传到 /upload，保存图片ID
+      fishApi.uploadImage(file.raw)
+        .then(res => {
+          if (res && res.id) {
+            this.uploadedImageId = res.id
+            ElMessage.success(`图片上传成功，ID: ${res.id}`)
+          } else {
+            ElMessage.warning('上传成功，但未返回图片ID')
+          }
+        })
+        .catch(err => {
+          console.error('图片上传失败:', err)
+          ElMessage.error('图片上传失败，请稍后重试')
+        })
     },
     async compareModels() {
       if (!this.imageUrl) {
         ElMessage.warning('请先上传图片')
         return
       }
-      this.loading = true
-      try {
-        const reader = new FileReader()
-        reader.readAsDataURL(this.imageFile)
-        reader.onload = async () => {
-          const base64Image = reader.result.split(',')[1]
-          try {
-            const data = await fishApi.compare(base64Image)
-            this.comparisonResults = data
-            this.loading = false
-            this.$nextTick(() => { this.renderCharts() })
-          } catch (error) {
-            console.error('对比请求失败:', error)
-            ElMessage.error('对比请求失败，请稍后重试')
-            this.loading = false
+
+      // 若缺少图片ID，补传一次当前文件
+      if (!this.uploadedImageId && this.imageFile) {
+        try {
+          const r = await fishApi.uploadImage(this.imageFile)
+          if (r && r.id) {
+            this.uploadedImageId = r.id
+            ElMessage.success(`图片重新上传成功，ID: ${r.id}`)
           }
+        } catch (e) {
+          console.error('补传图片失败:', e)
         }
+      }
+
+      if (!this.uploadedImageId) {
+        ElMessage.error('缺少图片ID，无法开始对比分析。请重新上传图片。')
+        return
+      }
+
+      this.loading = true
+      this.comparisonResults = {}
+
+      try {
+        // 并行向三个模型发送 /predict 请求，并记录点击到返回的时间差
+        const types = this.models.map(m => m.id)
+        const tasks = types.map(async (ptype) => {
+          const startTs = performance.now()
+          const data = await fishApi.predictById(this.uploadedImageId, ptype)
+          const elapsed = (performance.now() - startTs) / 1000
+          const det = data?.detections?.[0] || {}
+          const mappedClass = this.classNameMap[det.class_name] || det.class_name || '未知'
+          const confidence = Number(det.confidence || 0)
+          this.comparisonResults[ptype] = {
+            image_url: data?.result_image_id ? fishApi.getImageUrl(data.result_image_id) : this.imageUrl,
+            class: mappedClass,
+            confidence,
+            inference_time: Number(elapsed.toFixed(3))
+          }
+        })
+
+        await Promise.allSettled(tasks)
       } catch (error) {
-        console.error('处理图片失败:', error)
-        ElMessage.error('处理图片失败，请重试')
+        console.error('对比请求失败:', error)
+        ElMessage.error('对比请求失败，请稍后重试')
+      } finally {
         this.loading = false
       }
     },
@@ -171,189 +205,6 @@ export default {
       if (confidence > 0.8) return '#67C23A'
       if (confidence > 0.5) return '#E6A23C'
       return '#F56C6C'
-    },
-    renderCharts() {
-      this.renderAccuracyChart()
-      this.renderRecallChart()
-      this.renderF1Chart()
-    },
-    renderAccuracyChart() {
-      const chartDom = this.$refs.accuracyChart
-      const chart = echarts.init(chartDom)
-      this.charts.accuracy = chart
-      
-      const option = {
-        title: {
-          text: '准确率对比',
-          left: 'center'
-        },
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'shadow'
-          }
-        },
-        legend: {
-          data: ['Top-1准确率', 'Top-5准确率'],
-          bottom: 10
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '15%',
-          containLabel: true
-        },
-        xAxis: {
-          type: 'category',
-          data: this.models.map(model => model.name)
-        },
-        yAxis: {
-          type: 'value',
-          name: '准确率',
-          min: 0,
-          max: 1,
-          axisLabel: {
-            formatter: '{value * 100}%'
-          }
-        },
-        series: [
-          {
-            name: 'Top-1准确率',
-            type: 'bar',
-            data: this.models.map(model => this.comparisonResults[model.id]?.metrics.accuracy.top1 || 0),
-            itemStyle: {
-              color: function(params) {
-                const colors = ['#409EFF', '#67C23A', '#E6A23C']
-                return colors[params.dataIndex] || '#409EFF'
-              }
-            }
-          },
-          {
-            name: 'Top-5准确率',
-            type: 'bar',
-            data: this.models.map(model => this.comparisonResults[model.id]?.metrics.accuracy.top5 || 0),
-            itemStyle: {
-              color: function(params) {
-                const colors = ['#95c8ff', '#95e1a0', '#f3d19e']
-                return colors[params.dataIndex] || '#95c8ff'
-              }
-            }
-          }
-        ]
-      }
-      
-      chart.setOption(option)
-      window.addEventListener('resize', () => chart.resize())
-    },
-    renderRecallChart() {
-      const chartDom = this.$refs.recallChart
-      const chart = echarts.init(chartDom)
-      this.charts.recall = chart
-      
-      const option = {
-        title: {
-          text: '召回率对比',
-          left: 'center'
-        },
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'shadow'
-          }
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '15%',
-          containLabel: true
-        },
-        xAxis: {
-          type: 'category',
-          data: this.models.map(model => model.name)
-        },
-        yAxis: {
-          type: 'value',
-          name: '召回率',
-          min: 0,
-          max: 1,
-          axisLabel: {
-            formatter: '{value * 100}%'
-          }
-        },
-        series: [
-          {
-            name: '召回率',
-            type: 'bar',
-            data: this.models.map(model => this.comparisonResults[model.id]?.metrics.recall || 0),
-            itemStyle: {
-              color: function(params) {
-                const colors = ['#409EFF', '#67C23A', '#E6A23C']
-                return colors[params.dataIndex] || '#409EFF'
-              }
-            }
-          }
-        ]
-      }
-      
-      chart.setOption(option)
-      window.addEventListener('resize', () => chart.resize())
-    },
-    renderF1Chart() {
-      const chartDom = this.$refs.f1Chart
-      const chart = echarts.init(chartDom)
-      this.charts.f1 = chart
-      
-      const option = {
-        title: {
-          text: 'F1分数对比',
-          left: 'center'
-        },
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'shadow'
-          }
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '15%',
-          containLabel: true
-        },
-        xAxis: {
-          type: 'category',
-          data: this.models.map(model => model.name)
-        },
-        yAxis: {
-          type: 'value',
-          name: 'F1分数',
-          min: 0,
-          max: 1,
-          axisLabel: {
-            formatter: '{value * 100}%'
-          }
-        },
-        series: [
-          {
-            name: 'F1分数',
-            type: 'bar',
-            data: this.models.map(model => this.comparisonResults[model.id]?.metrics.f1 || 0),
-            itemStyle: {
-              color: function(params) {
-                const colors = ['#409EFF', '#67C23A', '#E6A23C']
-                return colors[params.dataIndex] || '#409EFF'
-              }
-            }
-          }
-        ]
-      }
-      
-      chart.setOption(option)
-      window.addEventListener('resize', () => chart.resize())
-    },
-    downloadChart() {
-      ElMessage.success('图表已下载')
-      // 实际项目中应该实现真正的下载功能
     }
   }
 }
@@ -366,12 +217,13 @@ export default {
   margin: 0 auto;
 }
 
-/* 上传区域样式 */
+/* 上传区域样式：左右排列 */
 .upload-section {
   margin-top: 30px;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
   gap: 20px;
 }
 
@@ -477,21 +329,6 @@ export default {
   color: #303133;
 }
 
-/* 图表区域样式 */
-.chart-section {
-  margin-top: 40px;
-}
-
-.chart-container {
-  height: 400px;
-  width: 100%;
-}
-
-.chart-actions {
-  margin-top: 20px;
-  text-align: right;
-}
-
 /* 响应式调整 */
 @media (max-width: 768px) {
   .model-cards .el-row {
@@ -502,8 +339,9 @@ export default {
     width: 100%;
   }
   
-  .chart-container {
-    height: 300px;
+  .upload-section {
+    flex-direction: column; /* 小屏幕下上下排列 */
+    align-items: center;
   }
 }
 </style>
