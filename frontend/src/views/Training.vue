@@ -67,7 +67,7 @@ export default {
         loss: Array.from({ length: 20 }, () => (Math.random() * 0.5 + 0.5).toFixed(3)),
         accuracy: Array.from({ length: 20 }, () => (Math.random() * 0.2 + 0.7).toFixed(3)),
         lr: Array.from({ length: 20 }, () => (Math.random() * 0.001 + 0.0005).toFixed(6))
-      }
+      },
       trainProcessImg: new URL('../assets/训练过程图.png', import.meta.url).href
     }
   },

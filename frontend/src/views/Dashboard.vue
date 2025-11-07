@@ -64,6 +64,37 @@
         </el-card>
       </el-col>
       <!-- 模型效果图：仅在 YOLO 与 EfficientNet 展示；比例不变、完整显示 -->
+      <!-- 新增：曲线4图，两行两列 -->
+      <el-col v-if="selectedModel==='yolo_seg' " :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+        <el-card class="chart-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <h3>{{ selectedModel==='yolo_seg' ? '验证集' : '测试集' }}曲线概览</h3>
+            </div>
+          </template>
+          <div class="grid-2x2">
+            <el-image :src="boxF1CurveImg" fit="contain" />
+            <el-image :src="boxPCurveImg" fit="contain" />
+            <el-image :src="boxPRCurveImg" fit="contain" />
+            <el-image :src="boxRCurveImg" fit="contain" />
+          </div>
+        </el-card>
+      </el-col>
+      <el-col v-if="selectedModel==='yolo_test'" :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+        <el-card class="chart-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <h3>{{ selectedModel==='yolo_seg' ? '验证集' : '测试集' }}曲线概览</h3>
+            </div>
+          </template>
+          <div class="grid-2x2">
+            <el-image :src="boxF1CurveImg2" fit="contain" />
+            <el-image :src="boxPCurveImg2" fit="contain" />
+            <el-image :src="boxPRCurveImg2" fit="contain" />
+            <el-image :src="boxRCurveImg2" fit="contain" />
+          </div>
+        </el-card>
+      </el-col>
       <el-col v-if="selectedModel!=='resnet50'" :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
         <el-card class="chart-card" shadow="hover">
           <template #header>
@@ -74,8 +105,16 @@
               </el-tooltip>
             </div>
           </template>
-          <div class="image-container">
-            <el-image :src="selectedModel==='efficientnet' ? efficientnetResultImg : trainBatchImg" fit="contain" />
+          <div class="image-container" v-if="selectedModel==='efficientnet'">
+            <el-image :src="efficientnetResultImg" fit="contain" />
+          </div>
+          <div class="image-container two-images" v-else>
+            <div class="img-item">
+              <el-image :src="selectedModel==='yolo_seg' ? segResultsImg : valLeftImg" fit="contain" />
+            </div>
+            <div class="img-item">
+              <el-image :src="selectedModel==='yolo_seg' ? trainBatchImg : valRightImg" fit="contain" />
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -84,9 +123,15 @@
         <template #header>
           <div class="card-header">
             <h3>不同模型效果对比</h3>
+            <el-tooltip content="根据Markdown内容转为结构化表格进行美观展示" placement="top">
+              <el-icon><InfoFilled /></el-icon>
+            </el-tooltip>
           </div>
         </template>
-        <div class="markdown-content" v-html="mdHtml"></div>
+        <el-table :data="modelCompareRows" style="width: 100%" v-if="modelCompareRows.length">
+          <el-table-column v-for="(col, idx) in modelCompareCols" :key="idx" :prop="col" :label="col" />
+        </el-table>
+        <div v-else class="no-excel">未能解析到模型对比内容</div>
       </el-card>
 
       <!-- 删除冗余块开始 -->
@@ -127,10 +172,24 @@ export default {
       yoloSegConfusionImg: new URL('../assets/yolo_fish_segmentation/confusion_matrix.png', import.meta.url).href,
       yoloValConfusionImg: new URL('../assets/yolo_val/confusion_matrix.png', import.meta.url).href,
       trainBatchImg: new URL('../assets/yolo_fish_segmentation/train_batch0.jpg', import.meta.url).href,
+      // 验证集/测试集曲线图（两行两列）
+      boxF1CurveImg: new URL('../assets/yolo_fish_segmentation/BoxF1_curve.png', import.meta.url).href,
+      boxPCurveImg: new URL('../assets/yolo_fish_segmentation/BoxP_curve.png', import.meta.url).href,
+      boxPRCurveImg: new URL('../assets/yolo_fish_segmentation/BoxPR_curve.png', import.meta.url).href,
+      boxRCurveImg: new URL('../assets/yolo_fish_segmentation/BoxR_curve.png', import.meta.url).href,
+      boxF1CurveImg2: new URL('../assets/yolo_val/BoxF1_curve.png', import.meta.url).href,
+      boxPCurveImg2: new URL('../assets/yolo_val/BoxP_curve.png', import.meta.url).href,
+      boxPRCurveImg2: new URL('../assets/yolo_val/BoxPR_curve.png', import.meta.url).href,
+      boxRCurveImg2: new URL('../assets/yolo_val/BoxR_curve.png', import.meta.url).href,
       // 新增：不同模型的训练损失与效果图
       retinanetLossImg: new URL('../assets/retinanet_training_loss_curve.png', import.meta.url).href,
       fasterrcnnLossImg: new URL('../assets/fasterrcnn_training_loss_curve.png', import.meta.url).href,
       efficientnetResultImg: new URL('../assets/fasterrcnn结果.jpg', import.meta.url).href,
+      // 验证集左右图
+      segResultsImg: new URL('../assets/yolo_fish_segmentation/results.png', import.meta.url).href,
+      // 测试集左右图
+      valLeftImg: new URL('../assets/yolo_val/val_batch0_labels.jpg', import.meta.url).href,
+      valRightImg: new URL('../assets/yolo_val/val_batch1_labels.jpg', import.meta.url).href,
       // Markdown渲染后的HTML
       mdHtml: '',
       valPredImg: new URL('../assets/yolo_fish_segmentation/val_batch0_pred.jpg', import.meta.url).href,
@@ -138,6 +197,8 @@ export default {
       // Excel 解析后的行列（若无 XLSX 依赖，则不解析，仅提供下载）
       excelRows: [],
       excelCols: [],
+      modelCompareCols: [],
+      modelCompareRows: [],
       mockData: {
         // 保留 mockData 以便数据集分布和其它图表备用，但优先使用本地图片
       }
@@ -234,13 +295,19 @@ export default {
         fetch(mdUrl)
           .then(resp => (resp.ok ? resp.text() : Promise.reject('not ok')))
           .then(text => {
-            this.mdHtml = this.simpleMarkdownToHtml(text)
+            const { cols, rows } = this.parseMarkdownTable(text)
+            this.modelCompareCols = cols
+            this.modelCompareRows = rows
           })
           .catch(() => {
             this.mdHtml = '<p>未能加载模型效果对比文档。</p>'
+            this.modelCompareCols = []
+            this.modelCompareRows = []
           })
       } catch (e) {
         this.mdHtml = '<p>未能加载模型效果对比文档。</p>'
+        this.modelCompareCols = []
+        this.modelCompareRows = []
       }
     },
     simpleMarkdownToHtml(md) {
@@ -269,12 +336,26 @@ export default {
         i++
       }
       return html.join('\n')
+    },
+    parseMarkdownTable(md) {
+      const lines = md.split(/\r?\n/)
+      const tbl = []
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim().startsWith('|')) tbl.push(lines[i])
+      }
+      if (!tbl.length) return { cols: [], rows: [] }
+      // 仅解析第一张表
+      const parseRow = r => r.trim().slice(1, r.trim().endsWith('|') ? -1 : undefined).split('|').map(c => c.trim())
+      const header = parseRow(tbl[0])
+      // 跳过第二行的分隔符
+      const rows = tbl.slice(2).map(parseRow).map(cols => Object.fromEntries(cols.map((c, idx) => [header[idx], c])))
+      return { cols: header, rows }
     }
   }
 }
 </script>
-
 <style scoped>
+
 .dashboard-container {
   padding: 20px;
   max-width: 1400px;
@@ -414,5 +495,17 @@ export default {
     align-items: flex-start;
     gap: 15px;
   }
+}
+.grid-2x2 {
+  width: 100%;
+  height: 400px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+}
+.grid-2x2 .el-image {
+  width: 100%;
+  height: 100%;
 }
 </style>
