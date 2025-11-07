@@ -91,9 +91,10 @@ export default {
       comparisonResults: null,
       // 与接口文档一致的三个检测模型
       models: [
-        { id: 'yolo_public_model', name: 'YOLOv5', type: '目标检测', color: '#409EFF' },
+        { id: 'yolo_public_model', name: 'YOLOv8', type: '目标检测', color: '#409EFF' },
         { id: 'faster_rcnn_public_model', name: 'Faster R-CNN', type: '目标检测', color: '#67C23A' },
-        { id: 'retinanet_public_model', name: 'RetinaNet', type: '目标检测', color: '#E6A23C' }
+        { id: 'retinanet_public_model', name: 'RetinaNet', type: '目标检测', color: '#E6A23C' },
+        { id: 'yolo_my_model', name: 'YOLOv8-自建数据集', type: '目标检测', color: '#909399' }
       ],
       // 映射后端英文类别到前端中英双语
       classNameMap: {

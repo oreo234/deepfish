@@ -17,7 +17,7 @@
     <el-row :gutter="20" class="dashboard-content">
       <!-- 数据集分布 -->
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-        <el-card class="chart-card" shadow="hover">
+        <el-card class="chart-card tall" shadow="hover">
           <template #header>
             <div class="card-header">
               <h3>数据集分布</h3>
@@ -40,7 +40,7 @@
           <template #header>
             <div class="card-header">
               <h3>模型指标图</h3>
-              <el-tooltip content="根据所选模型展示：YOLO显示混淆矩阵与train_batch0；其余显示训练损失曲线" placement="top">
+              <el-tooltip content="根据所选模型展示：YOLOv8显示混淆矩阵与train_batch0；其余显示训练损失曲线" placement="top">
                 <el-icon><InfoFilled /></el-icon>
               </el-tooltip>
             </div>
@@ -73,10 +73,10 @@
             </div>
           </template>
           <div class="grid-2x2">
-            <el-image :src="boxF1CurveImg" fit="contain" />
-            <el-image :src="boxPCurveImg" fit="contain" />
-            <el-image :src="boxPRCurveImg" fit="contain" />
-            <el-image :src="boxRCurveImg" fit="contain" />
+            <el-image :src="selectedModel==='yolo_seg' ? boxF1CurveImg : boxF1CurveImg2" fit="contain" />
+            <el-image :src="selectedModel==='yolo_seg' ? boxPCurveImg : boxPCurveImg2" fit="contain" />
+            <el-image :src="selectedModel==='yolo_seg' ? boxPRCurveImg : boxPRCurveImg2" fit="contain" />
+            <el-image :src="selectedModel==='yolo_seg' ? boxRCurveImg : boxRCurveImg2" fit="contain" />
           </div>
         </el-card>
       </el-col>
@@ -100,7 +100,7 @@
           <template #header>
             <div class="card-header">
               <h3>模型效果图</h3>
-              <el-tooltip content="展示YOLO的train_batch0或EfficientNet的效果图" placement="top">
+              <el-tooltip content="展示YOLOv8的train_batch0或Faster R-CNN的效果图" placement="top">
                 <el-icon><InfoFilled /></el-icon>
               </el-tooltip>
             </div>
@@ -157,10 +157,10 @@ export default {
     return {
       selectedModel: 'yolo_seg',
       models: [
-        { id: 'yolo_seg', name: 'yolo-验证集' },
-        { id: 'yolo_test', name: 'yolo-测试集' },
-        { id: 'resnet50', name: 'ResNet50' },
-        { id: 'efficientnet', name: 'EfficientNet' }
+        { id: 'yolo_seg', name: 'YOLOv8-验证集' },
+        { id: 'yolo_test', name: 'YOLOv8-测试集' },
+        { id: 'resnet50', name: 'RetinaNet' },
+        { id: 'efficientnet', name: 'Faster R-CNN' }
       ],
       charts: {},
       tableData: [],
@@ -507,5 +507,18 @@ export default {
 .grid-2x2 .el-image {
   width: 100%;
   height: 100%;
+}
+.chart-card.tall {
+  height: 560px;
+}
+.chart-card.tall .chart-container,
+.chart-card.tall .image-container {
+  height: 480px;
+}
+.image-container.two-images {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 16px;
 }
 </style>
